@@ -26,3 +26,6 @@ depth, then the final image drawn over its colour). New safety net: after a redi
 game's own targets, viewport and bindings come back before the next draw the add-on doesn't
 handle (draw, indexed and indirect draws). Shader names not confirmed by bytecode (structure and
 vertex shaders match Village's).
+
+Confirmed by the user (2026-11-03): looks right. Log: every DLSS mode via the dropdown
+(RE3DLSS.lua works): DLAA 3840x2160, 2561x1440, 2227x1252, 1920x1080 -> 3840x2160, no fallbacks.
