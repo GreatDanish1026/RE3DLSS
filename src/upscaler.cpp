@@ -56,15 +56,15 @@ using namespace reshade::api;
 namespace rd {
 namespace {
 
-// Resident Evil 3's shaders (docs/FINDINGS.md); the names are the same as Village's.
+// Resident Evil 3's shaders (docs/FINDINGS.md): TAA and bloom as RE2's, then Village's chain.
 constexpr uint32_t kTaaPs = 0x89b84994;      // PreTonemap2_PS: t1 depth, t2 colour, t3 history, t4 velocity
 constexpr uint32_t kTaaDepth = 1, kTaaColor = 2, kTaaMotion = 4;
 constexpr uint32_t kBloomPs = 0xdd975721;    // NewFinal
-constexpr uint32_t kTonemapPs = 0x0936c4dc;  // LDRPostProcess_WithTonemap (colour t0)
+constexpr uint32_t kTonemapPs = 0xd127432d;  // LDRPostProcess_WithTonemap (colour t0)
 constexpr uint32_t kTonemapColor = 0;
-constexpr uint32_t kCopyPs = 1;               // CopyImageWithDepthPS: not used in RE2
-constexpr uint32_t kSharpenPs = 2;            // Sharpness_PS: not used in RE2
-constexpr uint32_t kFinalCs = 0xa2614017;    // CAS_CS: FidelityFX CAS, stretches (and sharpens) to output size, u0
+constexpr uint32_t kCopyPs = 0xe254af62;     // CopyImageWithDepthPS: stretch to output size + depth (as Village)
+constexpr uint32_t kSharpenPs = 0x6fbe0dd2;  // Sharpness_PS (t0, the game's sharpness setting)
+constexpr uint32_t kFinalCs = 3;              // CAS_CS: not used in RE3 (the stretch is CopyImageWithDepthPS)
 constexpr int kToggleHotkey = VK_F9;
 
 // SceneInfo (cb0 of the TAA and tonemap shaders), as float indices.
@@ -172,6 +172,10 @@ struct __declspec(uuid("8b3e5d71-2c4a-4f09-9e6d-1a7b3c5e9f20")) ListState {
     bool hasVp = false;
     rect scissor = {};
     bool hasScissor = false;
+    // A game draw was redirected to output size (target, viewport, SceneInfo): the game's own
+    // state is put back before the next draw we don't handle, so nothing else is drawn with ours
+    // (0.0.1: an unrecognised tonemap after the redirected bloom drew a zoomed-in quarter).
+    bool redirected = false;
 };
 
 ListState* State(command_list* cl) { return cl->get_private_data<ListState>(); }
@@ -616,11 +620,12 @@ bool OnTaa(command_list* cl, ListState& s) {
 // state is put back at that stretch (OnFinalCompute).
 
 // Bloom (additive, texture coordinates): the game's draw goes into X.
-void OnBloom(command_list* cl, ListState&) {
+void OnBloom(command_list* cl, ListState& s) {
     std::lock_guard<std::mutex> lock(g_resMutex);
     if (!g_up.active || g_up.bloomDone || !g_x.rtv.handle) return;
     Transition(cl, g_x, resource_usage::render_target);
     BindFullTarget(cl, g_x.rtv, g_x.w, g_x.h);
+    s.redirected = true;
     g_up.bloomDone = true;
 }
 
@@ -668,7 +673,10 @@ bool RedrawAtOutputSize(command_list* cl, ListState& s, uint32_t reg, Texture& s
         cl->push_descriptors(s.graphics.roots.at(param).stages, s.graphics.layout, param, cu);
     }
     BindFullTarget(cl, dst.rtv, dst.w, dst.h);
-    if (inPlace) return true;  // the game's draw runs next, into dst
+    if (inPlace) {  // the game's draw runs next, into dst; its state comes back before the one after
+        s.redirected = true;
+        return true;
+    }
     cl->draw(3, 1, 0, 0);
     Restore(cl, s);  // puts the game's SceneInfo back
     RestoreTargets(cl, s);
@@ -690,10 +698,10 @@ bool OnTonemap(command_list* cl, ListState& s) {
 bool OnSharpen(command_list* cl, ListState& s) {
     std::lock_guard<std::mutex> lock(g_resMutex);
     if (!g_up.active || !g_up.tonemapDone || g_up.sharpenDone || !g_set.sharpen || !g_y.srv.handle) return false;
-    if (!RedrawAtOutputSize(cl, s, 0, g_y, g_z, "sharpened")) return false;
+    if (!RedrawAtOutputSize(cl, s, 0, g_y, g_z, "sharpened", true)) return false;
     g_up.sharpenDone = true;
     g_up.final = &g_z;
-    return true;
+    return false;  // the game's draw runs, at output size
 }
 
 // The game's stretch to output size: its draw runs (it also writes the output-size depth), then
@@ -973,10 +981,23 @@ bool UpscalerOnDispatch(command_list* cl) {
     return OnFinalCompute(cl, *s);
 }
 
+// Puts the game's own targets, viewport and bindings back after a redirected draw.
+void EndRedirect(command_list* cl, ListState& s) {
+    if (!s.redirected) return;
+    s.redirected = false;
+    Restore(cl, s);
+    RestoreTargets(cl, s);
+}
+
+void UpscalerBeforeDraw(command_list* cl) {
+    if (ListState* s = State(cl)) EndRedirect(cl, *s);
+}
+
 bool UpscalerOnDraw(command_list* cl, uint32_t vertices, uint32_t instances) {
-    if (!g_set.enabled || vertices != 3 || instances != 1) return false;
     ListState* s = State(cl);
     if (!s) return false;
+    EndRedirect(cl, *s);
+    if (!g_set.enabled || vertices != 3 || instances != 1) return false;
     switch (PipelinePs(s->pipe)) {
         case kTaaPs: return OnTaa(cl, *s);
         case kBloomPs: OnBloom(cl, *s); return false;
