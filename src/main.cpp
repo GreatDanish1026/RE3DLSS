@@ -905,7 +905,7 @@ void StartCapture() {
 }
 
 bool g_keyWasDown = false;
-bool g_captureHotkey = true;  // F10 (probe builds); ReShade.ini [RE3DLSS] CaptureHotkey
+bool g_captureHotkey = false;  // F10, off unless ReShade.ini [RE3DLSS] CaptureHotkey=1
 
 void OnPresent(command_queue*, swapchain* sc, const rect*, const rect*, uint32_t, const rect*) {
     if (g_capture.load() == Capture::Recording) {

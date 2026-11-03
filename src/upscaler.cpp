@@ -1,6 +1,6 @@
 // DLSS in place of the game's TAA (docs/FINDINGS.md).
 //
-// Resident Evil 3, forked from VillageDLSS (the post chain is the same shaders; ids below).
+// Resident Evil 3, forked from RE2DLSS (forked from VillageDLSS; the same shaders, ids below).
 //
 // The TAA pass (PreTonemap2_PS) is a full-screen draw reading depth (reverse-Z), the scene colour
 // before exposure, last frame's TAA output and the velocity (NDC offset from the current to the
@@ -13,17 +13,19 @@
 // DLSS's output is copied into the TAA target. Everything after it runs as the game does.
 //
 // Upscaling (render size below the output size): everything after TAA runs at render size, and a
-// compute pass (CAS_CS, FidelityFX CAS) stretches it to the output. So:
+// full-screen pass (CopyImageWithDepthPS) stretches it to the output and writes a full-size depth.
+// So:
 //   1. TAA: DLSS writes an output-size image (X). The game's TAA still runs at render size, so
 //      the passes after it at render size and the TAA history stay as they are.
-//   2. Motion blur (MotionBlur_ReconstructPS) reads render-size tiles by pixel position, so it's
-//      left out of the output-size image.
-//   3. Bloom composite (NewFinal, additive): the game's draw goes into X.
-//   4. Tonemap (LDRPostProcess_WithTonemap): reads t0 by pixel position and SceneInfo's screen
+//   2. Bloom composite (NewFinal, additive): the game's draw goes into X.
+//   3. Tonemap (LDRPostProcess_WithTonemap): reads t0 by pixel position and SceneInfo's screen
 //      size: the game's draw goes into Y at output size, t0 rewritten to X in its descriptor
 //      table, SceneInfo replaced by a copy with the output size.
-//   5. CAS_CS is skipped and Y is drawn into its output (our pass converts formats).
-// The HUD and the final output pass (and RenoDX) follow as usual.
+//   4. Sharpening (Sharpness_PS, the game's setting): the game's draw goes into Z from Y.
+//   5. CopyImageWithDepthPS: the game's draw (for its depth), then the final image is drawn over
+//      its colour (our pass converts formats).
+// After each redirected draw the game's own targets and bindings come back before the next draw
+// the add-on doesn't handle. The HUD and the final output pass (and RenoDX) follow as usual.
 //
 // NGX records its own compute state and descriptor heaps on the game's command list, so the
 // game's bindings are tracked per command list and put back afterwards (as in ReunionDLSS).
@@ -95,7 +97,7 @@ struct Mode {
 const Mode kModes[] = {{"Game's Image Quality slider", 0},  {"DLAA (100%)", 1.0f},
                        {"Quality (67%)", 0.667f},          {"Balanced (58%)", 0.58f},
                        {"Performance (50%)", 0.5f}};
-// No Ultra Performance (33%): in RE2 its colours come out wrong (user, 2026-11-03).
+// No Ultra Performance (33%): left out as in RE2DLSS (its colours came out wrong in RE2).
 constexpr int kModeCount = sizeof(kModes) / sizeof(kModes[0]);
 
 void LoadSettings() {
