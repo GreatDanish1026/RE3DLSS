@@ -68,9 +68,9 @@ If the NVIDIA App has a DLSS model override for the game, it takes precedence ov
 
 ## Notes
 
-- **1.1.0 is untested in RE3** (the game isn't installed here): the FSR and frame generation code
-  is RE7DLSS 1.1.1's, tested in RE7 and RE2 (RE2DLSS 1.1.0), with RE3's shader ids from
-  RE3DLSS 1.0. Please send `RE3DLSS.log` if something doesn't work.
+- Tested at 3840x2160 with HDR (RenoDX) in exclusive full screen on an NVIDIA RTX card, with
+  REFramework: DLAA, Quality, Balanced and Performance, with DLSS frame generation 2x. FSR and FSR
+  frame generation are the same code as RE7DLSS 1.1.1, where they were tested.
 - Works with REFramework: REFramework hooks NVIDIA's frame generation DLL in a way that would hang
   the game at launch; the add-on steps around that hook while the game's swapchain is created.
 - FSR 3.1/4 and FSR frame generation through this add-on are untested on Radeon cards so far.
