@@ -29,3 +29,22 @@ vertex shaders match Village's).
 
 Confirmed by the user (2026-11-03): looks right. Log: every DLSS mode via the dropdown
 (RE3DLSS.lua works): DLAA 3840x2160, 2561x1440, 2227x1252, 1920x1080 -> 3840x2160, no fallbacks.
+
+## 1.2.0: DLSS Ray Reconstruction (2026-11-09)
+
+Ported from RE2DLSS 1.2.0 (its `docs/FINDINGS.md` "Ray tracing chain" names the passes). RE3's
+chain is RE2's with two differences (captures in the game folder, dumps in `docs/shaders/rt`):
+
+| Step | RE2 | RE3 |
+|---|---|---|
+| shade specular (rayTracingShading) | cs2f1da6b8 | **csde6f8914** (also reads the VFX pass's vfxSpecular, t18) |
+| VFX denoise (median, spatial, temporal) | cs6b883e38, cs04bec84e, csc67ec41e | none |
+| rayTracingUpscale | cse120127f, t5-t8 | **cs4e928452**: t0 depth, t2 BaseColorMetallic, t3 NormalXNormalYRoughnessMisc, t4 PreGF, t5 historyShY, t6 historyCoCg, t7 historySpecular -> u0 Result |
+
+The rest (diffuse shading csfc23ed5b, VFX csddef9834, spatial csd6792963/cs25501ade, mean/variance,
+temporal, deflicker, bilateral) are RE2's shaders. So the skip modes hand over three signals.
+
+Test (2026-11-09, 4K HDR, RT reflections on): RR at DLAA and Quality (2561x1440 -> 3840x2160),
+camera matrix check ok, G-buffer formats 29/24 as RE2, models D/E/F created, "Skip all but the
+spatial passes" handed over 3 of 3 signals, switching RR on and off went back and forth to Super
+Resolution cleanly. Default RrDenoise 0 (the game's denoiser, RR on top) as RE2.
