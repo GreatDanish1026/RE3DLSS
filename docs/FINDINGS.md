@@ -48,3 +48,13 @@ Test (2026-11-09, 4K HDR, RT reflections on): RR at DLAA and Quality (2561x1440 
 camera matrix check ok, G-buffer formats 29/24 as RE2, models D/E/F created, "Skip all but the
 spatial passes" handed over 3 of 3 signals, switching RR on and off went back and forth to Super
 Resolution cleanly. Default RrDenoise 0 (the game's denoiser, RR on top) as RE2.
+
+## Motion vectors without the jitter (2026-11-17)
+
+Ported from RE2DLSS / VillageDLSS: the RE Engine velocity pass (FillVelocityPS) includes this
+frame's jitter (confirmed by disassembly in RE2's DX12 build and Village). mvfix.hlsl gives DLSS,
+Ray Reconstruction and FSR motion in render pixels without it (ini MotionFix, on). Tested
+2026-11-17 in RE3 and RE7 (DLSS, and Ray Reconstruction at Quality / Performance): "both look
+good"; in RE3 the blockiness on Jill's face is gone (user), as in RE3DLSS-DX11. The game cycles 16
+jitter positions (logged); a longer sequence was tried in RE2DLSS and dropped (shimmer with ray
+tracing).
