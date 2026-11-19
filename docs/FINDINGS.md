@@ -58,3 +58,10 @@ Ray Reconstruction and FSR motion in render pixels without it (ini MotionFix, on
 good"; in RE3 the blockiness on Jill's face is gone (user), as in RE3DLSS-DX11. The game cycles 16
 jitter positions (logged); a longer sequence was tried in RE2DLSS and dropped (shimmer with ray
 tracing).
+
+## AMD Radeon: camera constants (2026-11-19, from RE7DLSS pull request #3)
+
+Ported from RE7DLSS (merge 731079c): buffers are mapped by their D3D12 heap properties (ReBAR / Smart
+Access Memory GPU-upload heaps count as CPU-readable), a CBV b0 bound through a descriptor table is
+found too, copies into GPU-only constant buffers keep their bytes once tracking starts, and only the
+pass's own SceneInfo is used (no older frame, no compute bindings). Not tested on Radeon by us.
