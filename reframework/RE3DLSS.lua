@@ -1,6 +1,6 @@
 -- RE3DLSS companion script (REFramework autorun).
 -- Sets Resident Evil 3's Image Quality (render scale) to the DLSS mode chosen in the
--- RE3DLSS ReShade overlay. The add-on writes the wanted scale (0 = leave the game's slider
+-- RE3DLSS settings (REFramework menu, RE3DLSS section). The add-on writes the wanted scale (0 = leave the game's slider
 -- alone) to reframework/data/RE3DLSS_mode.txt; this script applies it through
 -- via.render.RenderConfig.ImageQualityRate, keeps it applied if the menu changes it, and puts the
 -- game's own value back when the mode goes back to the slider or DLSS is switched off. It writes
