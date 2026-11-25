@@ -1,6 +1,6 @@
-# RE3DLSS 1.3.5
+# RE3DLSS 2.0.0
 
-ReShade add-on for **Resident Evil 3** (DirectX 12) that replaces the game's TAA
+REFramework plugin for **Resident Evil 3** (DirectX 12) that replaces the game's TAA
 with **NVIDIA DLSS** or **AMD FSR 3.1 / FSR 4**, and adds **DLSS or FSR frame generation** and
 **DLSS Ray Reconstruction** for the ray-traced reflections and lighting. The game
 only has FSR 1 (a spatial upscaler); this gives it native anti-aliasing (DLAA) and upscaling from
@@ -8,8 +8,18 @@ Quality to Performance, with the game's bloom, tonemapping (and RenoDX HDR) and 
 image.
 
 DLSS: NVIDIA RTX graphics card (frame generation: RTX 40/50). FSR 3.1: any DirectX 12 graphics
-card; FSR 4: Radeon cards that support it (AMD's runtime picks). ReShade 6.8 or later with add-on
-support, and REFramework for the render resolution dropdown.
+card; FSR 4: Radeon cards that support it (AMD's runtime picks). Needs **REFramework** (plugin
+API 1.15 or later). **ReShade isn't needed any more** (2.0): RE3DLSS hooks the game's DirectX 12
+calls itself. ReShade can stay installed for other add-ons such as RenoDX HDR, which still work
+with it.
+
+## What's new in 2.0
+
+- **No ReShade needed.** RE3DLSS is now one REFramework plugin (`reframework\plugins\RE3DLSS.dll`)
+  with its own DirectX 12 hooks; everything it does is unchanged. With ReShade installed (for
+  RenoDX HDR, for example), the two work together.
+- **Settings in REFramework's menu** (Insert), saved in `RE3DLSS.ini`; 1.x's settings come over.
+- The separate `RE3DLSS_Reflex.dll` plugin is gone (it's part of `RE3DLSS.dll`).
 
 ## What it does
 
@@ -32,8 +42,8 @@ support, and REFramework for the render resolution dropdown.
   screen works. Switching it on, or between DLSS and FSR, takes a game
   restart.
 - **Lower latency with DLSS frame generation** (1.3.5): Reflex's wait now happens right before
-  the game reads input (keyboard and mouse, controllers), through the bundled RE3DLSS_Reflex plugin
-  for REFramework, instead of after the game had already read the frame's input. In testing it
+  the game reads input (keyboard and mouse, controllers), through REFramework (since 2.0 inside
+  RE3DLSS.dll itself), instead of after the game had already read the frame's input. In testing it
   cut the time from input to the finished frame from about 25 ms to about 15 ms (frame generation 2x)
   at the same frame rate. **NVIDIA Reflex**: On, or On + Boost (keeps the GPU's clocks up).
 - **Sharper textures at lower render sizes** (on by default): a mip bias of log2(render scale) on
@@ -67,23 +77,27 @@ support, and REFramework for the render resolution dropdown.
   Reconstruction gets (colour, reflectivity, normals, roughness). Without ray tracing it uses
   Super Resolution.
 
-Settings are in ReShade's Add-ons tab (Home key) under RE3DLSS: what's running at the top, then
-Settings, Status and Advanced tabs. They're saved in `ReShade.ini` under `[RE3DLSS]`.
+Settings are in REFramework's menu (Insert key) under **RE3DLSS**: what's running at the top, then
+Settings, Status and Advanced tabs. They're saved in `RE3DLSS.ini` next to `re3.exe` (2.0 copies
+1.x's settings from `ReShade.ini`'s `[RE3DLSS]` section the first time).
 
 ## Install
 
-**With Fluffy Mod Manager**: put `RE3DLSS-1.3.5.zip` in Fluffy Mod Manager's `Games\RE3R\Mods`
+**Updating from 1.x**: uninstall RE3DLSS 1.x first (in Fluffy Mod Manager, or delete
+`RE3DLSS.addon64` and `reframework\plugins\RE3DLSS_Reflex.dll`). While `RE3DLSS.addon64` is still
+there, 2.0 stays off and says so in its menu section, so the two never run together.
+
+**With Fluffy Mod Manager**: put `RE3DLSS-2.0.0.zip` in Fluffy Mod Manager's `Games\RE3R\Mods`
 folder (or drag it onto the manager) and enable it. It installs into the game folder:
 
-- `RE3DLSS.addon64` (the add-on), `nvngx_dlss.dll` and `nvngx_dlssd.dll` (NVIDIA's DLSS and
-  Ray Reconstruction runtimes, 310.9.16)
+- `reframework\plugins\RE3DLSS.dll` (the plugin: everything RE3DLSS does, including Reflex's
+  lower-latency timing)
+- `nvngx_dlss.dll` and `nvngx_dlssd.dll` (NVIDIA's DLSS and Ray Reconstruction runtimes, 310.9.16)
 - `streamline\` (NVIDIA's frame generation runtime, Streamline 2.14.16, with copies of
   `nvngx_dlss.dll` and `nvngx_dlssd.dll`)
 - `amd_fidelityfx_loader_dx12.dll`, `amd_fidelityfx_upscaler_dx12.dll` and
   `amd_fidelityfx_framegeneration_dx12.dll` (AMD's FSR runtime, SDK 2.4.0)
 - `reframework\autorun\RE3DLSS.lua` (sets the render scale for the render resolution dropdown)
-- `reframework\plugins\RE3DLSS_Reflex.dll` (tells the add-on when the game reads input, for
-  Reflex with DLSS frame generation)
 - `RE3DLSS-README.md`, `RE3DLSS-THIRD_PARTY_NOTICES.txt`, `RE3DLSS-licenses\`
 
 **By hand**: copy the contents of the zip's `RE3DLSS` folder into the game folder (where
@@ -91,24 +105,25 @@ folder (or drag it onto the manager) and enable it. It installs into the game fo
 
 Then:
 
-1. ReShade 6.8 or later with full add-on support must be installed for `re3.exe` (DirectX 12).
-2. REFramework must be installed for the render resolution dropdown (without it, use the game's
-   Image Quality slider: 0.67 = Quality, 0.58 = Balanced, 0.5 = Performance).
-   REFramework also gives Reflex its lower-latency timing (without it, Reflex works as before
-   1.3.5).
-3. In the game, keep Anti-Aliasing on TAA (DLSS/FSR replace that pass) and FidelityFX Super
+1. REFramework must be installed for `re3.exe` (its `dinput8.dll`; plugin API 1.15 or later, as
+   in current builds). RE3DLSS loads as its plugin.
+2. In the game, keep Anti-Aliasing on TAA (DLSS/FSR replace that pass) and FidelityFX Super
    Resolution off.
-4. Open ReShade (Home), Add-ons tab, RE3DLSS: upscaling is on by default (DLSS on RTX cards, FSR
+3. Open REFramework's menu (Insert), RE3DLSS: upscaling is on by default (DLSS on RTX cards, FSR
    otherwise); pick a render resolution and, if you like, frame generation.
 
 If the NVIDIA App has a DLSS model override for the game, it takes precedence over the model here.
 
 ## Notes
 
-- Tested at 3840x2160 with HDR (RenoDX) in exclusive full screen on an NVIDIA RTX card, with
-  REFramework: DLAA, Quality, Balanced and Performance, with DLSS frame generation 2x, and Ray
-  Reconstruction (DLAA and Quality, ray-traced reflections on, models D/E/F). FSR and FSR
-  frame generation are the same code as RE7DLSS 1.1.1, where they were tested.
+- 2.0 tested at 3840x2160 in exclusive full screen on an NVIDIA RTX card, with ReShade + RenoDX HDR
+  still installed: DLSS Ray Reconstruction (DLAA, Quality, Balanced, Performance), DLSS frame
+  generation 2x, Reflex at input, the settings in REFramework's menu. The hook layer is the same as
+  RE2DLSS 2.0.0's, also tested there without ReShade. FSR and FSR frame generation are the same
+  code as 1.x; under 2.0 they're untested so far.
+- 2.0 is new code under the hood (its own DirectX 12 hooks in place of ReShade's): if something
+  that worked in 1.3.5 doesn't, `RE3DLSS.log` next to `re3.exe` is the place to look, and 1.3.5
+  can still be installed instead.
 - Works with REFramework: REFramework hooks NVIDIA's frame generation DLL in a way that would hang
   the game at launch; the add-on steps around that hook while the game's swapchain is created.
 - FSR 3.1/4 and FSR frame generation through this add-on are untested on Radeon cards so far.
@@ -122,12 +137,15 @@ If the NVIDIA App has a DLSS model override for the game, it takes precedence ov
 
 ## Building
 
-`build.ps1` builds `bin\RE3DLSS.addon64` with Visual Studio 2022's C++ tools (MSVC): `-Install`
-copies it, the NVIDIA and AMD runtimes and the REFramework script into the game folder;
+`build.ps1` builds `bin\RE3DLSS.dll` (the REFramework plugin) with Visual Studio 2022's C++ tools
+(MSVC): `-Install` copies it, the NVIDIA and AMD runtimes and the REFramework script into the game
+folder (switching off a 1.x install there);
 `-Package` makes the Fluffy Mod Manager zip in `bin\release`. The runtimes aren't in the
 repository: put NVIDIA's signed `nvngx_dlss.dll` and `nvngx_dlssd.dll` 310.9.16 in `third_party\bin`, the Streamline
 2.14.16 release's `bin\x64` in `third_party\streamline\bin\x64`, and AMD's signed FSR SDK 2.4.0 DLLs
-(`Kits\FidelityFX\signedbin`) in `third_party\fidelityfx\bin`. `docs\FINDINGS.md` describes how the
+(`Kits\FidelityFX\signedbin`) in `third_party\fidelityfx\bin`. `src\rdx` is the DirectX 12 hook
+layer that serves ReShade's add-on API in place of ReShade (from RE2DLSS 2.0.0, whose
+`probe\FINDINGS.md` explains why a REFramework plugin can do this). `docs\FINDINGS.md` describes how the
 game renders and what the add-on changes (forked from RE2DLSS and VillageDLSS; their analyses are in `docs\RE2-FINDINGS.md` and
 `docs\VILLAGE-FINDINGS.md`); `docs\FRAMEGEN.md` covers FSR and frame
 generation.
